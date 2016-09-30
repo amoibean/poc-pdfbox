@@ -4,6 +4,8 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
+import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 
@@ -101,6 +103,31 @@ public abstract class DocWriter {
         composeHeader();
         composeBody();
         composeFooter();
+        contents.close();
+        document.save(file);
+        document.close();
+    }
+
+    public void write(String file, String ownerPassword, String userPassword) throws IOException {
+        composeHeader();
+        composeBody();
+        composeFooter();
+        int keyLength = 128;
+
+        AccessPermission ap = new AccessPermission();
+
+        // disable some permission
+        ap.setCanPrint(false);
+        ap.setCanModify(false);
+        ap.setCanExtractContent(false);
+
+        // owner password (to open the file with all permissions) is "12345"
+        // user password (to open the file but with restricted permissions)
+        StandardProtectionPolicy spp = new StandardProtectionPolicy(ownerPassword, userPassword, ap);
+        spp.setEncryptionKeyLength(keyLength);
+        spp.setPermissions(ap);
+        document.protect(spp);
+
         contents.close();
         document.save(file);
         document.close();

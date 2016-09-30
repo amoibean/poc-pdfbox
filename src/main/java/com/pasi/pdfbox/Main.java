@@ -29,11 +29,12 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         System.setProperty("sun.java2d.cmm", "sun.java2d.cmm.kcms.KcmsServiceProvider");
+        String file = args != null && args.length > 0 ? args[0] : "/Users/bean/Desktop/Patient_BP_Report-v0.08.pdf";
 
         PatientBloodPressureReport report = createPatientBloodPressureReport();
         PDDocument document = new PDDocument();
         DocWriter writer = new PBPRptDocWriter(document, report);
-        writer.write("/Users/bean/Desktop/Patient_BP_Report-v0.08.pdf");
+        writer.write(file, "all", "readonly");
 
         /*
         PDDocument doc = new PDDocument();
