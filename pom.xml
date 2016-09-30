@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>pasi</groupId>
-    <artifactId>pdfwriter</artifactId>
+    <artifactId>pdfcharts</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <dependencies>
