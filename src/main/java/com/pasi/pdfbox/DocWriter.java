@@ -1,10 +1,12 @@
 package com.pasi.pdfbox;
 
+import org.apache.pdfbox.exceptions.COSVisitorException;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.edit.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
+import org.apache.pdfbox.pdmodel.encryption.BadSecurityHandlerException;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
@@ -19,9 +21,12 @@ import java.util.List;
  * http://svn.apache.org/repos/asf/pdfbox/trunk/examples/src/main/java/org/apache/pdfbox/examples/pdmodel/AddMessageToEachPage.java
  */
 public abstract class DocWriter {
+    private static final float POINTS_PER_INCH = 72;
+    private static final float MM_PER_INCH = 1 / (10 * 2.54f) * POINTS_PER_INCH;
+    public static final PDRectangle A4 = new PDRectangle(210 * MM_PER_INCH, 297 * MM_PER_INCH);
     public static final PDFont DEFAULT_FONT = PDType1Font.HELVETICA;
     public static final PDFont DEFAULT_FONT_BOLD = PDType1Font.HELVETICA_BOLD;
-    public static final float DEFAULT_WIDTH = PDRectangle.A4.getWidth();
+    public static final float DEFAULT_WIDTH = A4.getWidth();
     public static final float DEFAULT_FONT_SIZE = 10F;
     public static final float DEFAULT_MARGIN = 20;
     public static final float PARAGRAPH_SPACING = 5F;
@@ -43,11 +48,11 @@ public abstract class DocWriter {
             if (contents != null) {
                 contents.close();
             }
-            page = new PDPage(PDRectangle.A4);
+            page = new PDPage(A4);
             pageWidth = page.getMediaBox().getWidth() - margin * 2;
             pageHeight = page.getMediaBox().getHeight() - headerHeight - footerHeight;
             currentY = pageHeight;
-            contents = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true);
+            contents = new PDPageContentStream(document, page, true, false);
             document.addPage(page);
         } catch (IOException e) {
             e.printStackTrace();
@@ -99,16 +104,7 @@ public abstract class DocWriter {
     abstract float composeBody() throws IOException;
     abstract float composeFooter() throws IOException;
 
-    public void write(String file) throws IOException {
-        composeHeader();
-        composeBody();
-        composeFooter();
-        contents.close();
-        document.save(file);
-        document.close();
-    }
-
-    public void write(String file, String ownerPassword, String userPassword) throws IOException {
+    public void write(String file, String ownerPassword, String userPassword) throws IOException, BadSecurityHandlerException, COSVisitorException {
         composeHeader();
         composeBody();
         composeFooter();

@@ -3,35 +3,37 @@ package com.pasi.pdfbox;
 import be.quodlibet.boxable.BaseTable;
 import be.quodlibet.boxable.Cell;
 import be.quodlibet.boxable.Row;
-import be.quodlibet.boxable.utils.FontUtils;
+import com.keypoint.PngEncoder;
 import com.pasi.pdfbox.bean.BloodPressureRecord;
 import com.pasi.pdfbox.bean.PatientBloodPressureReport;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
-import org.apache.pdfbox.pdmodel.font.PDType1CFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
-import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.apache.pdfbox.pdmodel.graphics.xobject.PDJpeg;
+import org.apache.pdfbox.pdmodel.graphics.xobject.PDPixelMap;
+import org.apache.pdfbox.pdmodel.graphics.xobject.PDXObjectImage;
+import org.apache.pdfbox.util.ImageIOUtil;
 import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartUtilities;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.CategoryLabelPositions;
-import org.jfree.chart.axis.TickUnits;
 import org.jfree.chart.axis.ValueAxis;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.Marker;
 import org.jfree.chart.plot.ValueMarker;
+import org.jfree.chart.renderer.category.CategoryItemRenderer;
 import org.jfree.chart.title.LegendTitle;
-import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.category.DefaultCategoryDataset;
-import org.jfree.ui.RectangleAnchor;
 import org.jfree.ui.RectangleEdge;
 import org.jfree.ui.RectangleInsets;
-import org.jfree.ui.TextAnchor;
 
+import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -61,24 +63,29 @@ public class PBPRptDocWriter extends DocWriter {
         //float textWidth = getStringWidth(DEFAULT_FONT, text);
         //System.out.println("text width = " + textWidth);
         contents.beginText();
-        contents.newLineAtOffset(margin, currentY);
+        contents.moveTextPositionByAmount(margin, currentY);
+        //contents.newLineAtOffset(margin, currentY);
         contents.setFont(DEFAULT_FONT, DEFAULT_FONT_SIZE);
-        contents.showText(text);
+        contents.drawString(text);
+        //contents.showText(text);
         contents.endText();
 
         currentY -= (DEFAULT_FONT_HEIGHT + PARAGRAPH_SPACING);
 
         text = "We are pleased to provide your Blood Pressure Report.  This report lists your blood pressure readings over the past 3 months.";
-        float leading = getDefaultFontHeight() + 2;
-        contents.setLeading(leading);
+        float leading = getDefaultFontHeight() * 1.2f;
+        //contents.setLeading(leading);
         contents.beginText();
-        contents.newLineAtOffset(margin, currentY);
+        contents.moveTextPositionByAmount(margin, currentY);
+        //contents.newLineAtOffset(margin, currentY);
         contents.setFont(DEFAULT_FONT, DEFAULT_FONT_SIZE);
         List<String> lines = getLines(text, DEFAULT_FONT, DEFAULT_FONT_SIZE, pageWidth);
         for (String line : lines) {
-            contents.showText(line.trim());
+            contents.drawString(line.trim());
+            //contents.showText(line.trim());
             if (lines.indexOf(line) < lines.size() - 1) {
-                contents.newLine();
+                contents.moveTextPositionByAmount(0, -leading);
+                //contents.newLine();
             }
         }
         contents.endText();
@@ -88,9 +95,11 @@ public class PBPRptDocWriter extends DocWriter {
         BloodPressureRecord average = report.getAverageBloodPressure();
         text = "Blood Pressure AVERAGE- " + average.getSystolic() + " / " + average.getDiastolic() + " DESIRED RANGE- " + report.getDesiredSystolic() + " / " + report.getDesiredDiastolic();
         contents.beginText();
-        contents.newLineAtOffset(margin, currentY);
-        contents.setFont(DEFAULT_FONT_BOLD, 12);
-        contents.showText(text);
+        contents.moveTextPositionByAmount(margin, currentY);
+        //contents.newLineAtOffset(margin, currentY);
+        contents.setFont(DEFAULT_FONT_BOLD, 11);
+        contents.drawString(text);
+        //contents.showText(text);
         contents.endText();
 
         currentY -= DEFAULT_FONT_HEIGHT;
@@ -106,15 +115,18 @@ public class PBPRptDocWriter extends DocWriter {
         } else {
             text = text.replace("#result#", "low");
         }
-        contents.setLeading(leading);
+        //contents.setLeading(leading);
         contents.beginText();
-        contents.newLineAtOffset(margin, currentY);
+        contents.moveTextPositionByAmount(margin, currentY);
+        //contents.newLineAtOffset(margin, currentY);
         contents.setFont(DEFAULT_FONT, DEFAULT_FONT_SIZE);
         lines = getLines(text, DEFAULT_FONT, DEFAULT_FONT_SIZE, pageWidth);
         for (String line : lines) {
-            contents.showText(line.trim());
+            contents.drawString(line.trim());
+            //contents.showText(line.trim());
             if (lines.indexOf(line) < lines.size() - 1) {
-                contents.newLine();
+                contents.moveTextPositionByAmount(0, -leading);
+                //contents.newLine();
             }
         }
         contents.endText();
@@ -130,15 +142,18 @@ public class PBPRptDocWriter extends DocWriter {
         } else {
             text = "Your readings are low compared to your desired range. Make an appointment with your doctor to discuss your blood pressure.";
         }
-        contents.setLeading(leading);
+        //contents.setLeading(leading);
         contents.beginText();
-        contents.newLineAtOffset(margin, currentY);
+        contents.moveTextPositionByAmount(margin, currentY);
+        //contents.newLineAtOffset(margin, currentY);
         contents.setFont(DEFAULT_FONT, DEFAULT_FONT_SIZE);
         lines = getLines(text, DEFAULT_FONT, DEFAULT_FONT_SIZE, pageWidth);
         for (String line : lines) {
-            contents.showText(line.trim());
+            contents.drawString(line.trim());
+            //contents.showText(line.trim());
             if (lines.indexOf(line) < lines.size() - 1) {
-                contents.newLine();
+                contents.moveTextPositionByAmount(0, -leading);
+                //contents.newLine();
             }
         }
         contents.endText();
@@ -148,9 +163,11 @@ public class PBPRptDocWriter extends DocWriter {
         // Additional Comments
         text = "Additional Comments";
         contents.beginText();
-        contents.newLineAtOffset(margin, currentY);
+        contents.moveTextPositionByAmount(margin, currentY);
+        //contents.newLineAtOffset(margin, currentY);
         contents.setFont(DEFAULT_FONT, DEFAULT_FONT_SIZE);
-        contents.showText(text);
+        contents.drawString(text);
+        //contents.showText(text);
         contents.endText();
 
         float y = currentY - 3f;
@@ -170,25 +187,24 @@ public class PBPRptDocWriter extends DocWriter {
     }
 
     private float createBloodPressureRecordsTable() throws IOException {
-        BaseTable table = new BaseTable(currentY, pageHeight, 5, pageWidth, margin, document, page, true,
-                true);
+        BaseTable table = new BaseTable(currentY, pageHeight, 5, pageWidth-6f, margin, document, page, true, true);
         //Create Header row
-        Row<PDPage> headerRow = table.createRow(getDefaultFontHeight() + 2);
-        float rowHeight = 10f;
+        Row headerRow = table.createRow(getDefaultFontHeight() + 2);
+        float rowHeight = 12f;
         float cellWidth = 100 * 0.2f;
         String[] headers = new String[] {"Date", "Systolic Pressure(mmHg)", "Diastolic Pressure(mmHg)", "Pulse(beats/min)", "Source"};
         for (String header : headers) {
-            Cell<PDPage> cell = headerRow.createCell(cellWidth, header);
+            Cell cell = headerRow.createCell(cellWidth, header);
             cell.setFont(PDType1Font.HELVETICA_BOLD);
             //cell.setFillColor(Color.LIGHT_GRAY);
         }
-        table.addHeaderRow(headerRow);
+        //table.addHeaderRow(headerRow);
         List<String[]> facts = getFacts();
         for (String[] fact : facts) {
             int rowIndex = facts.indexOf(fact);
-            Row<PDPage> row = table.createRow(rowHeight);
+            Row row = table.createRow(rowHeight);
             for (int i = 0; i < fact.length; i++) {
-                Cell<PDPage> cell = row.createCell(cellWidth, fact[i]);
+                Cell cell = row.createCell(cellWidth, fact[i]);
                 if (rowIndex % 2 == 0 && rowIndex != facts.size() - 1) {
                     cell.setFillColor(Color.LIGHT_GRAY);
                 }
@@ -238,7 +254,7 @@ public class PBPRptDocWriter extends DocWriter {
         }
 
         JFreeChart chart = ChartFactory.createLineChart(null, null, null, dataset);
-        Font labelFont = new Font(Font.DIALOG, Font.PLAIN, 10);
+        Font labelFont = new Font(Font.DIALOG, Font.PLAIN, 20);
         LegendTitle legend = chart.getLegend();
         legend.setPosition(RectangleEdge.RIGHT);
         legend.setItemFont(labelFont);
@@ -269,11 +285,15 @@ public class PBPRptDocWriter extends DocWriter {
 
         int width = Float.valueOf(pageWidth).intValue() - 40;
         int height = 300;
-        BufferedImage image = chart.createBufferedImage(width, height);
-        PDImageXObject pdImage = LosslessFactory.createFromImage(document, image);
-        float scale = 1f;
+        BufferedImage image = chart.createBufferedImage(width * 2, height * 2, BufferedImage.TYPE_INT_RGB, null);
+
+        PDXObjectImage pdImage = new PDPixelMap(document, image);
+
+        //PDImageXObject pdImage = LosslessFactory.createFromImage(document, image);
+        //float scale = 1f;
         float x = DEFAULT_MARGIN + 20;
-        contents.drawImage(pdImage, x, currentY - height, pdImage.getWidth() * scale, pdImage.getHeight() * scale);
+        contents.drawXObject(pdImage, x, currentY - height, width, height);
+        //contents.drawImage(pdImage, x, currentY - height);
 
         contents.setStrokingColor(Color.black);
         contents.addRect(x - 5, currentY - height - 5, width + 10, height + 10);
