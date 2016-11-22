@@ -3,17 +3,18 @@ package com.pasi.pdfbox;
 import be.quodlibet.boxable.BaseTable;
 import be.quodlibet.boxable.Cell;
 import be.quodlibet.boxable.Row;
-import com.keypoint.PngEncoder;
 import com.pasi.pdfbox.bean.BloodPressureRecord;
 import com.pasi.pdfbox.bean.PatientBloodPressureReport;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.edit.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.graphics.xobject.PDJpeg;
 import org.apache.pdfbox.pdmodel.graphics.xobject.PDPixelMap;
 import org.apache.pdfbox.pdmodel.graphics.xobject.PDXObjectImage;
-import org.apache.pdfbox.util.ImageIOUtil;
 import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartUtilities;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.CategoryLabelPositions;
@@ -21,7 +22,6 @@ import org.jfree.chart.axis.ValueAxis;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.Marker;
 import org.jfree.chart.plot.ValueMarker;
-import org.jfree.chart.renderer.category.CategoryItemRenderer;
 import org.jfree.chart.title.LegendTitle;
 import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.ui.RectangleEdge;
@@ -30,14 +30,11 @@ import org.jfree.ui.RectangleInsets;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -50,11 +47,6 @@ public class PBPRptDocWriter extends DocWriter {
         super.document = document;
         this.report = report;
         addNewPage();
-    }
-
-    @Override
-    float composeHeader() throws IOException {
-        return 0;
     }
 
     @Override
@@ -177,12 +169,96 @@ public class PBPRptDocWriter extends DocWriter {
         contents.stroke();
 
         currentY -= (DEFAULT_FONT_HEIGHT + PARAGRAPH_SPACING + 3);
+        // add more contents for page 1 here
 
+        // Page 2
+        addNewPage();
+        text = "What is blood pressure?";
+        contents.beginText();
+        contents.moveTextPositionByAmount(margin, currentY);
+        contents.setFont(DEFAULT_FONT, DEFAULT_FONT_SIZE);
+        contents.drawString(text);
+        //contents.showText(text);
+        contents.endText();
+
+        y = currentY - 3f;
+        textWidth = DEFAULT_FONT.getStringWidth(text) / 1000 * DEFAULT_FONT_SIZE;
+        contents.moveTo(margin, y);
+        contents.lineTo(margin + textWidth, y);
+        contents.stroke();
+
+        currentY -= (DEFAULT_FONT_HEIGHT + PARAGRAPH_SPACING + 3);
+
+        text = "Your heart pumps blood around your body. Blood pressure is the force of blood against your body. This force is necessary to make the blood flow, delivering nutrients and oxygen throughout your body.";
+        contents.beginText();
+        contents.moveTextPositionByAmount(margin, currentY);
+        contents.setFont(DEFAULT_FONT, DEFAULT_FONT_SIZE);
+        lines = getLines(text, DEFAULT_FONT, DEFAULT_FONT_SIZE, pageWidth);
+        for (String line : lines) {
+            contents.drawString(line.trim());
+            if (lines.indexOf(line) < lines.size() - 1) {
+                contents.moveTextPositionByAmount(0, -leading);
+            }
+        }
+        contents.endText();
+
+        currentY -= (lines.size() * leading);
+
+        contents.close();
         return 0;
     }
 
+    /**
+     * Add logo images to header of each page;
+     * Add page number as well as date at the footer of each page
+     *
+     * @return 0
+     * @throws IOException
+     */
     @Override
-    float composeFooter() throws IOException {
+    float composeHeaderFooter() throws IOException {
+        List allPages = document.getDocumentCatalog().getAllPages();
+        PDFont font = DEFAULT_FONT;
+        float headerFontSize = 18.0f;
+        float footerFontSize = DEFAULT_FONT_SIZE;
+        String date = new SimpleDateFormat("MMM d, yyyy").format(new Date());
+        float dateWidth = font.getStringWidth(date) * footerFontSize / 1000f;
+        for(int i = 0; i < allPages.size(); i++) {
+            PDPage page = (PDPage)allPages.get( i );
+            String pageNumber = "Page " + (i + 1) + " of " + allPages.size();
+            PDPageContentStream contentStream = new PDPageContentStream(document, page, true, true, true);
+            // compose header
+            float headerY = footerHeight + pageHeight;
+            String headerText = "Patient Blood Pressure Report";
+            if (i == 1) {
+                headerText = "What you should know about your Blood Pressure?";
+            }
+            contentStream.beginText();
+            contentStream.moveTextPositionByAmount(margin, headerY);
+            contentStream.setFont(font, headerFontSize);
+            contentStream.drawString(headerText);
+            contentStream.endText();
+            // insert logo image
+            BufferedImage image = ImageIO.read(getClass().getClassLoader().getResourceAsStream("pharmacy-logo.jpg"));
+            PDXObjectImage logo = new PDJpeg(document, image);
+            contentStream.drawXObject(logo, margin + pageWidth - 140, headerY - 16, 140f, 32f);
+
+            // compose footer
+            float footerY = footerHeight - DEFAULT_MARGIN + footerFontSize;
+            contentStream.beginText();
+            contentStream.moveTextPositionByAmount(margin, footerY);
+            // set font and font size
+            contentStream.setFont(font, footerFontSize);
+            contentStream.drawString(pageNumber);
+            contentStream.endText();
+
+            contentStream.beginText();
+            contentStream.moveTextPositionByAmount(margin + pageWidth - dateWidth, footerY);
+            contentStream.drawString(date);
+            contentStream.endText();
+
+            contentStream.close();
+        }
         return 0;
     }
 

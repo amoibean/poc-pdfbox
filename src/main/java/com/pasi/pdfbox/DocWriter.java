@@ -27,9 +27,9 @@ public abstract class DocWriter {
     public static final PDFont DEFAULT_FONT = PDType1Font.HELVETICA;
     public static final PDFont DEFAULT_FONT_BOLD = PDType1Font.HELVETICA_BOLD;
     public static final float DEFAULT_WIDTH = A4.getWidth();
-    public static final float DEFAULT_FONT_SIZE = 10F;
-    public static final float DEFAULT_MARGIN = 20;
-    public static final float PARAGRAPH_SPACING = 5F;
+    public static final float DEFAULT_FONT_SIZE = 10f;
+    public static final float DEFAULT_MARGIN = 20f;
+    public static final float PARAGRAPH_SPACING = 5f;
     public static final float DEFAULT_FONT_HEIGHT = DEFAULT_FONT.getFontDescriptor().getFontBoundingBox().getHeight() / 1000 * DEFAULT_FONT_SIZE;
     protected float margin = DEFAULT_MARGIN;
     protected float headerHeight = 40;
@@ -100,14 +100,12 @@ public abstract class DocWriter {
         return result;
     }
 
-    abstract float composeHeader() throws IOException;
     abstract float composeBody() throws IOException;
-    abstract float composeFooter() throws IOException;
+    abstract float composeHeaderFooter() throws IOException;
 
     public void write(String file, String ownerPassword, String userPassword) throws IOException, BadSecurityHandlerException, COSVisitorException {
-        composeHeader();
         composeBody();
-        composeFooter();
+        composeHeaderFooter();
         int keyLength = 128;
 
         AccessPermission ap = new AccessPermission();
@@ -124,7 +122,7 @@ public abstract class DocWriter {
         spp.setPermissions(ap);
         document.protect(spp);
 
-        contents.close();
+        //contents.close();
         document.save(file);
         document.close();
     }
