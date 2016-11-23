@@ -5,15 +5,24 @@ import be.quodlibet.boxable.Cell;
 import be.quodlibet.boxable.Row;
 import com.pasi.pdfbox.bean.BloodPressureRecord;
 import com.pasi.pdfbox.bean.PatientBloodPressureReport;
+import com.pasi.pdfbox.bean.XYLocation;
+import com.pasi.pdfbox.util.LocationFinder;
+import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.exceptions.COSVisitorException;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDResources;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.edit.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.graphics.xobject.PDJpeg;
 import org.apache.pdfbox.pdmodel.graphics.xobject.PDPixelMap;
+import org.apache.pdfbox.pdmodel.graphics.xobject.PDXObject;
 import org.apache.pdfbox.pdmodel.graphics.xobject.PDXObjectImage;
+import org.apache.pdfbox.util.PDFMergerUtility;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
@@ -36,6 +45,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Created by bean on 9/27/16.
@@ -171,41 +182,47 @@ public class PBPRptDocWriter extends DocWriter {
         currentY -= (DEFAULT_FONT_HEIGHT + PARAGRAPH_SPACING + 3);
         // add more contents for page 1 here
 
-        // Page 2
-        addNewPage();
-        text = "What is blood pressure?";
-        contents.beginText();
-        contents.moveTextPositionByAmount(margin, currentY);
-        contents.setFont(DEFAULT_FONT, DEFAULT_FONT_SIZE);
-        contents.drawString(text);
-        //contents.showText(text);
-        contents.endText();
-
-        y = currentY - 3f;
-        textWidth = DEFAULT_FONT.getStringWidth(text) / 1000 * DEFAULT_FONT_SIZE;
-        contents.moveTo(margin, y);
-        contents.lineTo(margin + textWidth, y);
-        contents.stroke();
-
-        currentY -= (DEFAULT_FONT_HEIGHT + PARAGRAPH_SPACING + 3);
-
-        text = "Your heart pumps blood around your body. Blood pressure is the force of blood against your body. This force is necessary to make the blood flow, delivering nutrients and oxygen throughout your body.";
-        contents.beginText();
-        contents.moveTextPositionByAmount(margin, currentY);
-        contents.setFont(DEFAULT_FONT, DEFAULT_FONT_SIZE);
-        lines = getLines(text, DEFAULT_FONT, DEFAULT_FONT_SIZE, pageWidth);
-        for (String line : lines) {
-            contents.drawString(line.trim());
-            if (lines.indexOf(line) < lines.size() - 1) {
-                contents.moveTextPositionByAmount(0, -leading);
-            }
-        }
-        contents.endText();
-
-        currentY -= (lines.size() * leading);
-
+        // Merge page 2
+        PDFMergerUtility merger = new PDFMergerUtility();
+        PDDocument page2 = preprocessPage2();
+        merger.appendDocument(document, page2);
+        page2.close();
         contents.close();
         return 0;
+    }
+
+    /**
+     * Pre-process page2 and prepare it to be merged.
+     *
+     * @return the processed page2
+     */
+    private PDDocument preprocessPage2() throws IOException {
+        PDDocument page2 = PDDocument.load(getClass().getClassLoader().getResourceAsStream("page2.pdf"));
+        PDDocumentCatalog catalog = page2.getDocumentCatalog();
+        PDPage page = (PDPage) catalog.getAllPages().get(0);
+        PDResources resources = page.findResources();
+        Map<String, PDXObject> xObjects = resources.getXObjects();
+        COSDictionary dict = resources.getCOSDictionary();
+        PDPageContentStream contentStream = new PDPageContentStream(page2, page, true, true, true);
+
+        for (Map.Entry<String, PDXObject> entry : xObjects.entrySet()) {
+            String key = entry.getKey();
+            PDXObject object = entry.getValue();
+            if (object instanceof PDXObjectImage) {
+                /** assuming the first image object is the logo, we need to remove it
+                 * and then insert the new one
+                 */
+                XYLocation logoLocation = LocationFinder.findImageLocation(page, (PDXObjectImage) object);
+                xObjects.remove(key);
+                ((COSDictionary)dict.getDictionaryObject(COSName.XOBJECT)).removeItem(COSName.getPDFName(key));
+                BufferedImage image = ImageIO.read(getClass().getClassLoader().getResourceAsStream("pharmacy-logo.jpg"));
+                PDXObjectImage logo = new PDJpeg(page2, image);
+                contentStream.drawXObject(logo, logoLocation.getX(), logoLocation.getY(), 140f, 32f);
+                break;
+            }
+        }
+        contentStream.close();
+        return page2;
     }
 
     /**
@@ -230,18 +247,17 @@ public class PBPRptDocWriter extends DocWriter {
             // compose header
             float headerY = footerHeight + pageHeight;
             String headerText = "Patient Blood Pressure Report";
-            if (i == 1) {
-                headerText = "What you should know about your Blood Pressure?";
+            if (i == 0) {
+                contentStream.beginText();
+                contentStream.moveTextPositionByAmount(margin, headerY);
+                contentStream.setFont(font, headerFontSize);
+                contentStream.drawString(headerText);
+                contentStream.endText();
+                // insert logo image
+                BufferedImage image = ImageIO.read(getClass().getClassLoader().getResourceAsStream("pharmacy-logo.jpg"));
+                PDXObjectImage logo = new PDJpeg(document, image);
+                contentStream.drawXObject(logo, margin + pageWidth - 140, headerY - 16, 140f, 32f);
             }
-            contentStream.beginText();
-            contentStream.moveTextPositionByAmount(margin, headerY);
-            contentStream.setFont(font, headerFontSize);
-            contentStream.drawString(headerText);
-            contentStream.endText();
-            // insert logo image
-            BufferedImage image = ImageIO.read(getClass().getClassLoader().getResourceAsStream("pharmacy-logo.jpg"));
-            PDXObjectImage logo = new PDJpeg(document, image);
-            contentStream.drawXObject(logo, margin + pageWidth - 140, headerY - 16, 140f, 32f);
 
             // compose footer
             float footerY = footerHeight - DEFAULT_MARGIN + footerFontSize;
