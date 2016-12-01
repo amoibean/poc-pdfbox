@@ -28,7 +28,7 @@ public abstract class DocWriter {
     public static final PDFont DEFAULT_FONT_BOLD = PDType1Font.HELVETICA_BOLD;
     public static final float DEFAULT_WIDTH = A4.getWidth();
     public static final float DEFAULT_FONT_SIZE = 10f;
-    public static final float DEFAULT_MARGIN = 20f;
+    public static final float DEFAULT_MARGIN = 30f;
     public static final float PARAGRAPH_SPACING = 5f;
     public static final float DEFAULT_FONT_HEIGHT = DEFAULT_FONT.getFontDescriptor().getFontBoundingBox().getHeight() / 1000 * DEFAULT_FONT_SIZE;
     protected float margin = DEFAULT_MARGIN;
