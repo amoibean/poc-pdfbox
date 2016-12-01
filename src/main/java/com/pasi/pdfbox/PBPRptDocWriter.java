@@ -5,12 +5,18 @@ import be.quodlibet.boxable.Cell;
 import be.quodlibet.boxable.Row;
 import com.pasi.pdfbox.bean.BloodPressureRecord;
 import com.pasi.pdfbox.bean.PatientBloodPressureReport;
+import com.pasi.pdfbox.bean.XYLocation;
+import com.pasi.pdfbox.util.LocationFinder;
+import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.pdfparser.PDFStreamParser;
+import org.apache.pdfbox.pdfwriter.ContentStreamWriter;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.edit.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
@@ -19,6 +25,7 @@ import org.apache.pdfbox.pdmodel.graphics.xobject.PDPixelMap;
 import org.apache.pdfbox.pdmodel.graphics.xobject.PDXObject;
 import org.apache.pdfbox.pdmodel.graphics.xobject.PDXObjectImage;
 import org.apache.pdfbox.util.PDFMergerUtility;
+import org.apache.pdfbox.util.PDFOperator;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
@@ -199,48 +206,67 @@ public class PBPRptDocWriter extends DocWriter {
             PDPage page = (PDPage) pg;
             PDResources resources = page.findResources();
             Map<String, PDXObject> xObjects = resources.getXObjects();
-            COSDictionary dict = resources.getCOSDictionary();
-            PDPageContentStream contentStream = new PDPageContentStream(page2, page, true, true, false);
+            // find the logo image location
+            XYLocation logoLocation = null;
+            String key = null;
             for (Map.Entry<String, PDXObject> entry : xObjects.entrySet()) {
-                String key = entry.getKey();
+                key = entry.getKey();
                 PDXObject object = entry.getValue();
                 if (object instanceof PDXObjectImage) {
-                    /**
-                     * At first, we tried to remember the logo image position and then remove it from
-                     * resources, and use drawImage to draw the new image at the logo image location
-                     * in (140 x 32) dimension. But simply removing the xobject from resources is not
-                     * enough, there are still references to the original logo image in the content
-                     * stream which are hard to find and delete. In order to keep the references so
-                     * that the PDF document is not massed up, we keep the reference name and replace
-                     * the COSObject of the original logo image with the new one. This however, will
-                     * make the new logo image to appear at the same location and the same size with
-                     * the original one. So the placeholder logo image has to be placed in the right
-                     * position and needs to be the desired size(140 x 32 for example)
-                     */
-                    //By replacing the original image, we no longer need to know its location
-                    //XYLocation logoLocation = LocationFinder.findImageLocation(page, (PDXObjectImage) object);
-
-                    /**
-                     * removing xobject does not remove all its references from content stream which triggers
-                     * the error prompt in Adobe Acrobat
-                     */
-                    //xObjects.remove(key);
-                    //((COSDictionary) dict.getDictionaryObject(COSName.XOBJECT)).removeItem(COSName.getPDFName(key));
-                    BufferedImage image = ImageIO.read(getClass().getClassLoader().getResourceAsStream("pharmacy-logo.jpg"));
-                    PDXObjectImage logo = new PDJpeg(page2, image);
-                    // since we can't safely delete the original one, we can't insert the new one
-                    //contentStream.drawXObject(logo, logoLocation.getX(), logoLocation.getY(), 140f, 32f);
-
-                    // replace the original image COSObject with the new one
-                    ((COSDictionary) dict.getDictionaryObject(COSName.XOBJECT)).setItem(COSName.getPDFName(key), logo.getCOSObject());
-                    // this will work too, but the replaceWithStream is deprecated
-                    //object.getCOSStream().replaceWithStream(logo.getCOSStream());
+                    logoLocation = LocationFinder.findImageLocation(page, (PDXObjectImage) object);
                     break; // assuming the first image is the logo image!
                 }
             }
+            // re-construct the content stream tokens
+            COSDictionary newDictionary = new COSDictionary(page.getCOSDictionary());
+            PDFStreamParser parser = new PDFStreamParser(page.getContents());
+            parser.parse();
+            List tokens = parser.getTokens();
+            List newTokens = new ArrayList();
+            for (int i = 0; i < tokens.size(); i++) {
+                Object token = tokens.get(i);
+                if (token instanceof PDFOperator) {
+                    PDFOperator op = (PDFOperator) token;
+                    if (op.getOperation().equals("Do")) {
+                        COSName name = (COSName) newTokens.get(newTokens.size() - 1);
+                        if (name.getName().equals(key)) {
+                            newTokens.remove(newTokens.size() - 1);
+                            deleteObject(newDictionary, name);
+                            continue;
+                        }
+                    }
+                }
+                newTokens.add(token);
+            }
+            PDStream newContents = new PDStream(page2);
+            ContentStreamWriter writer = new ContentStreamWriter(newContents.createOutputStream());
+            writer.writeTokens(newTokens);
+            newContents.addCompression();
+            page.setContents(newContents);
+
+            BufferedImage image = ImageIO.read(getClass().getClassLoader().getResourceAsStream("pharmacy-logo.jpg"));
+            PDXObjectImage logo = new PDJpeg(page2, image);
+            PDPageContentStream contentStream = new PDPageContentStream(page2, page, true, true, true);
+            contentStream.drawXObject(logo, logoLocation.getX(), logoLocation.getY(), 140f, 32f);
             contentStream.close();
         }
         return page2;
+    }
+
+    public static boolean deleteObject(COSDictionary d, COSName name) {
+        for(COSName key : d.keySet()) {
+            if( name.equals(key) ) {
+                d.removeItem(key);
+                return true;
+            }
+            COSBase object = d.getDictionaryObject(key);
+            if(object instanceof COSDictionary) {
+                if( deleteObject((COSDictionary)object, name) ) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
