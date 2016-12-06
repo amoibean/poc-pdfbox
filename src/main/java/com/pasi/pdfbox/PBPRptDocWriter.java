@@ -304,7 +304,7 @@ public class PBPRptDocWriter extends DocWriter {
             }
 
             // compose footer
-            float footerY = footerHeight - DEFAULT_MARGIN + footerFontSize;
+            float footerY = footerHeight;
             contentStream.beginText();
             contentStream.moveTextPositionByAmount(margin, footerY);
             // set font and font size
